@@ -292,13 +292,23 @@ module.exports = function(User) {
 
   User.logout = function(tokenId, fn) {
     fn = fn || utils.createPromiseCallback();
-    this.relations.accessTokens.modelTo.findById(tokenId, function(err, accessToken) {
+
+    if (!tokenId) {
+      var err = new Error(g.f('{{accessToken}} is required to logout'));
+      err.status = 401;
+      process.nextTick(fn, err);
+      return fn.promise;
+    }
+
+    this.relations.accessTokens.modelTo.destroyById(tokenId, function(err, info) {
       if (err) {
         fn(err);
-      } else if (accessToken) {
-        accessToken.destroy(fn);
+      } else if ('count' in info && info.count === 0) {
+        var err = new Error(g.f('Could not find {{accessToken}}'));
+        err.status = 401;
+        fn(err);
       } else {
-        fn(new Error(g.f('could not find {{accessToken}}')));
+        fn();
       }
     });
     return fn.promise;
